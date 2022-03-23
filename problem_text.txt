@@ -1,0 +1,13 @@
+Cutting Fields From A CSV File December 7, 2021
+
+Over at Stack Overflow, I answered a question about cutting fields from a CSV
+file. Paraphrasing:
+
+    A file in CSV format has a header row containing field names followed by
+record rows containing actual data. The user wants to cut fields from the CSV
+file to create a new CSV file containing only the specified fields, specifying
+the fields by name instead of using their ordinal position.
+
+Your task is to write a program to cut fields from a CSV file by name. When you
+are finished, you are welcome to read or run a suggested solution, or to post
+your own solution or discuss the exercise in the comments below.
