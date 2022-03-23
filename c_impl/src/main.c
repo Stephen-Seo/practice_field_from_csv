@@ -39,13 +39,13 @@ void append_strdlist(StrDList *head, const char *string) {
 }
 
 void cleanup_strdlist(StrDList **head) {
+  if (!head || !*head) {
+    return;
+  }
+
   StrDList *current = *head;
   while (current->next) {
     current = current->next;
-  }
-
-  if (*head == current) {
-    return;
   }
 
   while (current->prev) {
@@ -188,12 +188,14 @@ int main(int argc, char **argv) {
   ParsedArgs args = parse_args(argc, argv);
 
   if (args.error) {
+    cleanup_strdlist(&args.fields);
     return 1;
   } else if (args.usage_printed) {
+    cleanup_strdlist(&args.fields);
     return 0;
   }
 
-  size_t field_count = print_and_count_strdlist(args.fields);
+  print_and_count_strdlist(args.fields);
 
   FILE *csv_fd = fopen(args.input_filename, "r");
   if (!csv_fd) {
@@ -232,6 +234,7 @@ int main(int argc, char **argv) {
   }
 
   // do printing of only the chosen columns
+  size_t number_of_entries = idx;
   idx = 0;
   while (1) {
     CSVEntry entry = get_field(csv_fd, idx);
@@ -254,7 +257,7 @@ int main(int argc, char **argv) {
   }
 
   fclose(csv_fd);
-  for (size_t i = 0; i < field_count; ++i) {
+  for (size_t i = 0; i < number_of_entries; ++i) {
     if (entries[i].buf) {
       free(entries[i].buf);
     }
