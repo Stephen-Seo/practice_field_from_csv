@@ -6,7 +6,10 @@ else
 endif
 
 SOURCES = \
-	src/main.o
+	src/main.o \
+	src/argparse.o \
+	src/csventry.o \
+	src/strdlist.o
 
 all: fields_from_csv
 

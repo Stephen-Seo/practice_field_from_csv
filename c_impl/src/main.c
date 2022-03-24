@@ -2,186 +2,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef struct StrDList {
-  char *string;
-  struct StrDList *next;
-  struct StrDList *prev;
-} StrDList;
-
-typedef struct ParsedArgs {
-  const char *input_filename;
-  StrDList *fields;
-  int usage_printed;
-  int error;
-} ParsedArgs;
+#include "argparse.h"
+#include "csventry.h"
+#include "strdlist.h"
 
 void usage() {
   puts(
       "USAGE:\n"
       "./fields_from_csv <input_csv> <field> [<field>...]\n");
-}
-
-StrDList *create_strdlist() { return calloc(1, sizeof(StrDList)); }
-
-void append_strdlist(StrDList *head, const char *string) {
-  StrDList *current = head;
-
-  while (current->next) {
-    current = current->next;
-  }
-
-  current->next = calloc(1, sizeof(StrDList));
-  current->next->prev = current;
-  size_t string_size = strlen(string);
-  current->next->string = malloc(string_size + 1);
-  memcpy(current->next->string, string, string_size);
-  current->next->string[string_size] = 0;
-}
-
-void cleanup_strdlist(StrDList **head) {
-  if (!head || !*head) {
-    return;
-  }
-
-  StrDList *current = *head;
-  while (current->next) {
-    current = current->next;
-  }
-
-  while (current->prev) {
-    current = current->prev;
-    if (current->next->string) {
-      free(current->next->string);
-    }
-    free(current->next);
-    current->next = NULL;
-  }
-
-  (*head)->next = NULL;
-
-  free(*head);
-  *head = NULL;
-}
-
-size_t print_and_count_strdlist(StrDList *head) {
-  size_t count = 0;
-  StrDList *current = head;
-  puts("Printing strdlist...");
-  while (current->next) {
-    current = current->next;
-    printf("%s ", current->string);
-    ++count;
-  }
-  printf("\n");
-
-  return count;
-}
-
-int strdlist_has_str(StrDList *head, const char *str) {
-  StrDList *current = head;
-  int idx = 0;
-  while (current->next) {
-    current = current->next;
-    if (strcmp(current->string, str) == 0) {
-      return idx;
-    } else {
-      ++idx;
-    }
-  }
-
-  return -1;
-}
-
-ParsedArgs parse_args(int argc, char **argv) {
-  // init
-  ParsedArgs args;
-  args.input_filename = NULL;
-  args.fields = create_strdlist();
-  args.usage_printed = 0;
-  args.error = 0;
-
-  --argc;
-  ++argv;
-
-  // get filename and field from args
-  if (argc > 1) {
-    args.input_filename = argv[0];
-  } else {
-    args.error = 1;
-    usage();
-    args.usage_printed = 1;
-  }
-
-  --argc;
-  ++argv;
-
-  while (argc > 0) {
-    append_strdlist(args.fields, argv[0]);
-    --argc;
-    ++argv;
-  }
-
-  return args;
-}
-
-typedef struct CSVEntry {
-  char *buf;
-  size_t idx;
-  int is_end_of_line;
-  int is_end_of_file;
-  int is_chosen_field;
-} CSVEntry;
-
-CSVEntry get_field(FILE *fd, size_t field_idx) {
-  size_t current_size = 512;
-  CSVEntry entry;
-  entry.is_end_of_line = 0;
-  entry.is_end_of_file = 0;
-  entry.is_chosen_field = 0;
-  entry.buf = NULL;
-  size_t idx = 0;
-  int next = fgetc(fd);
-
-  while (next != EOF) {
-    if (next == ',') {
-      break;
-    } else if (next == '\n') {
-      entry.is_end_of_line = 1;
-      break;
-    } else if (next == ' ' || next == '\t') {
-      next = fgetc(fd);
-      continue;
-    }
-    if (!entry.buf) {
-      // malloc of buf deferred to here in case a field reaches EOF
-      entry.buf = malloc(current_size);
-    }
-    entry.buf[idx++] = next;
-    if (idx >= current_size) {
-      current_size *= 2;
-      entry.buf = realloc(entry.buf, current_size);
-    }
-
-    next = fgetc(fd);
-  }
-
-  if (next == EOF) {
-    entry.is_end_of_file = 1;
-  }
-
-  if (entry.buf) {
-    if (idx >= current_size) {
-      current_size += 1;
-      entry.buf = realloc(entry.buf, current_size);
-      entry.buf[idx] = 0;
-    } else {
-      entry.buf[idx] = 0;
-    }
-  }
-
-  entry.idx = field_idx;
-
-  return entry;
 }
 
 int main(int argc, char **argv) {
@@ -190,7 +18,8 @@ int main(int argc, char **argv) {
   if (args.error) {
     cleanup_strdlist(&args.fields);
     return 1;
-  } else if (args.usage_printed) {
+  } else if (args.usage_print) {
+    usage();
     cleanup_strdlist(&args.fields);
     return 0;
   }
@@ -242,9 +71,7 @@ int main(int argc, char **argv) {
       printf("%s, ", entry.buf);
     }
 
-    if (entry.buf) {
-      free(entry.buf);
-    }
+    cleanup_csventry(&entry, 1);
 
     if (entry.is_end_of_file) {
       break;
@@ -258,11 +85,11 @@ int main(int argc, char **argv) {
 
   fclose(csv_fd);
   for (size_t i = 0; i < number_of_entries; ++i) {
-    if (entries[i].buf) {
-      free(entries[i].buf);
-    }
+    cleanup_csventry(entries + i, 0);
   }
   free(entries);
   cleanup_strdlist(&args.fields);
   return 0;
 }
+
+// vim: et: ts=2: sts=2: sw=2
